@@ -1,0 +1,51 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.cache
+*.log
+
+# Virtual environments
+venv/
+env/
+.virtualenv/
+
+# IDE configurations
+.vscode/
+.idea/
+*.iml
+
+# Log files
+*.log
+logs/
+debug.log
+error.log
+
+# Environment variables and secrets
+.env
+*.env
+secrets.json
+config.yaml
+
+# Static and media files
+staticfiles/
+media/
+
+# SQLite database files
+*.sqlite3
+*.db
+
+# Docker-related files
+docker-compose.override.yml
+.dockerignore
+
+# PostgreSQL dumps
+*.dump
+*.sql
+
+# Poetry cache
+.poetry/
+
+# WebSockets cache
+ws_cache/
