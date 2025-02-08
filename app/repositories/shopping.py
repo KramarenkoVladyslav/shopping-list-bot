@@ -3,21 +3,14 @@ from sqlalchemy.future import select
 
 from app.models.models import ShoppingItem
 from app.schemas.shopping import ShoppingItemCreate, ShoppingItemUpdate
+from app.services.access_control import has_access_to_room
 
 
-# Function to retrieve all shopping items from the database
-async def get_items(db: AsyncSession):
-    result = await db.execute(select(ShoppingItem))
-    return result.scalars().all()
+# Add a new shopping item with validation and access check
+async def add_item(db: AsyncSession, item_data: ShoppingItemCreate, user_id: int):
+    if not await has_access_to_room(db, user_id, item_data.room_id):
+        return {"error": "Access denied to this room"}
 
-
-# Function to retrieve a single shopping item by its ID
-async def get_item(db: AsyncSession, item_id: int):
-    return await db.get(ShoppingItem, item_id)
-
-
-# Function to create a new shopping item in the database
-async def create_item(db: AsyncSession, item_data: ShoppingItemCreate):
     item = ShoppingItem(**item_data.model_dump())
     db.add(item)
     await db.commit()
@@ -25,21 +18,32 @@ async def create_item(db: AsyncSession, item_data: ShoppingItemCreate):
     return item
 
 
-# Function to update an existing shopping item
-async def update_item(db: AsyncSession, item_id: int, item_data: ShoppingItemUpdate):
-    item = await db.get(ShoppingItem, item_id)  # Retrieves the item by ID
-    if item:
+# Get all items for a specific room with access check
+async def get_items(db: AsyncSession, room_id: int, user_id: int):
+    if not await has_access_to_room(db, user_id, room_id):
+        return {"error": "Access denied to this room"}
+
+    result = await db.execute(select(ShoppingItem).where(ShoppingItem.room_id == room_id))
+    return result.scalars().all()
+
+
+# Update a shopping item with validation and access check
+async def update_item(db: AsyncSession, item_id: int, item_data: ShoppingItemUpdate, user_id: int):
+    item = await db.get(ShoppingItem, item_id)
+    if item and await has_access_to_room(db, user_id, item.room_id):
         for key, value in item_data.model_dump(exclude_unset=True).items():
             setattr(item, key, value)
         await db.commit()
         await db.refresh(item)
-    return item
+        return item
+    return {"error": "Access denied to this item"}
 
 
-# Function to delete a shopping item by its ID
-async def delete_item(db: AsyncSession, item_id: int):
+# Delete a shopping item with access check
+async def delete_item(db: AsyncSession, item_id: int, user_id: int):
     item = await db.get(ShoppingItem, item_id)
-    if item:
+    if item and await has_access_to_room(db, user_id, item.room_id):
         await db.delete(item)
         await db.commit()
-    return item
+        return {"message": "Item deleted successfully"}
+    return {"error": "Access denied to this item"}
