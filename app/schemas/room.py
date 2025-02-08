@@ -18,7 +18,7 @@ class RoomUpdate(BaseModel):
 class RoomResponse(RoomBase):
     id: int
     owner_id: int
-    invited_code: str
+    invite_code: str
 
     class Config:
         orm_mode = True

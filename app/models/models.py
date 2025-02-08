@@ -15,8 +15,7 @@ class ShoppingItem(Base):
     name = Column(String, index=True)
     category = Column(String, index=True)
     room_id = Column(Integer, ForeignKey('rooms.id'))
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
 # Model for Rooms
 class Room(Base):
@@ -26,7 +25,7 @@ class Room(Base):
     name = Column(String, index=True)
     owner_id = Column(Integer)
     invite_code = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     # Relationships
     items = relationship('ShoppingItem', backref='room')
