@@ -1,28 +1,37 @@
 from typing import Optional, List
+from pydantic import BaseModel, Field
+from datetime import datetime
 
-from pydantic import BaseModel
 
-
+# Base schema for Room (used for inheritance)
 class RoomBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=3, max_length=30, description="Name of the room")
 
 
+# Schema for creating a new room
 class RoomCreate(RoomBase):
-    pass
+    pass  # No changes needed, inherits validation from RoomBase
 
 
+# Schema for updating an existing room
 class RoomUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=3, max_length=30, description="Updated name of the room")
 
 
+# Schema for API response
 class RoomResponse(RoomBase):
     id: int
     owner_id: int
     invite_code: str
+    created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
+    # Schema for returning a list of rooms
 class RoomListResponse(BaseModel):
-    rooms: List[RoomResponse]
+    rooms: List[RoomResponse] = Field(..., description="List of rooms")
+
+    class Config:
+        from_attributes = True
