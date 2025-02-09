@@ -5,10 +5,6 @@ services:
     container_name: shopping-list-db
     env_file:
       - .env
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -18,18 +14,14 @@ services:
     image: redis:7
     restart: always
     container_name: shopping-list-redis
-    env_file:
-      - .env
-    environment:
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
     ports:
       - "6379:6379"
 
-  app:
+  api:
     build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: always
-    container_name: shopping-list-app
+    container_name: shopping-list-api
     depends_on:
       - db
       - redis
@@ -37,9 +29,19 @@ services:
       - "8000:8000"
     env_file:
       - .env
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-      REDIS_URL: redis://${REDIS_HOST}:${REDIS_PORT}
+    volumes:
+      - .:/app
+
+  bot:
+    build: .
+    command: python -m app.bot.bot
+    restart: always
+    container_name: shopping-list-bot
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
     volumes:
       - .:/app
 

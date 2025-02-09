@@ -20,5 +20,6 @@ class Settings:
     DATABASE_URL: str = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
     REDIS_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN")
 
 settings = Settings()
