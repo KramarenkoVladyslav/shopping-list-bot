@@ -49,3 +49,28 @@ async def delete_room(db: AsyncSession, room_id: int, user_id: int):
         await db.commit()
         return {'message': 'Room deleted successfully'}
     return {"error": "You are not authorized to delete this room"}
+
+
+# Function to join a room using an invitation code
+async def join_room(db: AsyncSession, invite_code: str, user_id: int):
+    # Find the room by the invite code
+    result = await db.execute(select(Room).where(Room.invite_code == invite_code))
+    room = result.scalar_one_or_none()
+
+    if not room:
+        return {"error": "Room not found with this invite code."}
+
+    user_check = await db.execute(
+        select(RoomUser).where(RoomUser.room_id == room.id, RoomUser.user_id == user_id)
+    )
+    existing_member = user_check.scalar_one_or_none()
+
+    if existing_member:
+        return {"message": "You are already a member of this room."}
+
+    new_member = RoomUser(room_id=room.id, user_id=user_id)
+    db.add(new_member)
+    await db.commit()
+    await db.refresh(new_member)
+
+    return {"message": f"Successfully joined the room: {room.name}"}
