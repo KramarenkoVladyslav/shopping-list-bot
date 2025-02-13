@@ -1,8 +1,7 @@
 import uuid
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from fastapi import HTTPException
 from app.models.models import Room, RoomUser
 from app.websockets.manager import websocket_manager
 
@@ -33,7 +32,6 @@ async def get_user_rooms(db: AsyncSession, user_id: int):
     result = await db.execute(
         select(Room).join(RoomUser).where(RoomUser.user_id == user_id)
     )
-
     return result.scalars().all()
 
 
@@ -54,7 +52,7 @@ async def update_room(db: AsyncSession, room_id: int, new_name: str, user_id: in
 
         return room
 
-    return {"error": "Access denied."}
+    raise HTTPException(status_code=403, detail="Access denied.")
 
 
 async def delete_room(db: AsyncSession, room_id: int, user_id: int):
@@ -72,27 +70,29 @@ async def delete_room(db: AsyncSession, room_id: int, user_id: int):
 
         return {"message": "Room successfully deleted."}
 
-    return {"error": "Access denied."}
+    raise HTTPException(status_code=403, detail="Access denied.")
 
 
 async def join_room(db: AsyncSession, invite_code: str, user_id: int):
     result = await db.execute(select(Room).where(Room.invite_code == invite_code))
     room = result.scalar_one_or_none()
-
     if not room:
-        return {"error": "Room not found."}
+        raise HTTPException(status_code=404, detail="Room not found.")
 
     user_check = await db.execute(
         select(RoomUser).where(RoomUser.room_id == room.id, RoomUser.user_id == user_id)
     )
     existing_member = user_check.scalar_one_or_none()
-
     if existing_member:
-        return {"message": "You are already a member of this room."}
+        raise HTTPException(status_code=409, detail="You are already a member of this room.")
 
     new_member = RoomUser(room_id=room.id, user_id=user_id)
     db.add(new_member)
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Internal server error.")
     await db.refresh(new_member)
 
     message = (
@@ -102,4 +102,4 @@ async def join_room(db: AsyncSession, invite_code: str, user_id: int):
     )
     await websocket_manager.send_message(room.id, message)
 
-    return {"message": f"Successfully joined the room: {room.name}"}
+    return {"name": room.name, "message": "Successfully joined the room"}
