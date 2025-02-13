@@ -4,9 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Room, RoomUser
+from app.websockets.manager import websocket_manager
 
 
-# Function to create room
 async def create_room(db: AsyncSession, name: str, owner_id: int):
     invite_code = str(uuid.uuid4())[:8]
     room = Room(name=name, owner_id=owner_id, invite_code=invite_code)
@@ -18,10 +18,17 @@ async def create_room(db: AsyncSession, name: str, owner_id: int):
     db.add(room_user)
     await db.commit()
 
+    message = (
+        f"📢 *Нова кімната створена!* 🏠\n"
+        f"👤 Власник: _User {owner_id}_\n"
+        f"🛒 Назва кімнати: *{room.name}*\n"
+        f"🔑 Код запрошення: `{room.invite_code}`"
+    )
+    await websocket_manager.send_message(room.id, message)
+
     return room
 
 
-# Function to retrieve all rooms for a specific user
 async def get_user_rooms(db: AsyncSession, user_id: int):
     result = await db.execute(
         select(Room).join(RoomUser).where(RoomUser.user_id == user_id)
@@ -30,35 +37,50 @@ async def get_user_rooms(db: AsyncSession, user_id: int):
     return result.scalars().all()
 
 
-# Function to update the room name
 async def update_room(db: AsyncSession, room_id: int, new_name: str, user_id: int):
     room = await db.get(Room, room_id)
     if room and room.owner_id == user_id:
+        old_name = room.name
         room.name = new_name
         await db.commit()
         await db.refresh(room)
+
+        message = (
+            f"🔄 *Назва кімнати оновлена!* ✏️\n"
+            f"🛒 {old_name} ➝ *{room.name}*\n"
+            f"👤 Оновив: _User {user_id}_"
+        )
+        await websocket_manager.send_message(room.id, message)
+
         return room
-    return None
+
+    return {"error": "Access denied."}
 
 
-# Function to update the room name
 async def delete_room(db: AsyncSession, room_id: int, user_id: int):
     room = await db.get(Room, room_id)
     if room and room.owner_id == user_id:
         await db.delete(room)
         await db.commit()
-        return {'message': 'Room deleted successfully'}
-    return {"error": "You are not authorized to delete this room"}
+
+        message = (
+            f"❌ *Кімнату видалено!* 🏠\n"
+            f"🛒 Назва: *{room.name}*\n"
+            f"👤 Видалив: _User {user_id}_"
+        )
+        await websocket_manager.send_message(room.id, message)
+
+        return {"message": "Room successfully deleted."}
+
+    return {"error": "Access denied."}
 
 
-# Function to join a room using an invitation code
 async def join_room(db: AsyncSession, invite_code: str, user_id: int):
-    # Find the room by the invite code
     result = await db.execute(select(Room).where(Room.invite_code == invite_code))
     room = result.scalar_one_or_none()
 
     if not room:
-        return {"error": "Room not found with this invite code."}
+        return {"error": "Room not found."}
 
     user_check = await db.execute(
         select(RoomUser).where(RoomUser.room_id == room.id, RoomUser.user_id == user_id)
@@ -72,5 +94,12 @@ async def join_room(db: AsyncSession, invite_code: str, user_id: int):
     db.add(new_member)
     await db.commit()
     await db.refresh(new_member)
+
+    message = (
+        f"✅ *Новий учасник у кімнаті!* 🎉\n"
+        f"🛒 Кімната: *{room.name}*\n"
+        f"👤 Приєднався: _User {user_id}_"
+    )
+    await websocket_manager.send_message(room.id, message)
 
     return {"message": f"Successfully joined the room: {room.name}"}
