@@ -119,16 +119,26 @@ async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     room_name = update.message.text
 
-    response = requests.post(f"{API_BASE_URL}/rooms/", json={"name": room_name, "owner_id": user_id})
+    logger.info(f"Creating room: {room_name} for user {user_id}")
+
+    response = requests.post(
+        f"{API_BASE_URL}/rooms/",
+        json={"name": room_name},
+        headers={"telegram-id": str(user_id)}
+    )
     result = response.json()
 
+    logger.info(f"API Response: {result}")
+
     if "error" in result:
-        await update.message.reply_text("❌ Помилка: " + result["error"])
+        await update.message.reply_text(f"❌ Помилка: {result['error']}")
+    elif "name" not in result:
+        await update.message.reply_text("⚠️ Сервер повернув неочікувану відповідь.")
     else:
         await update.message.reply_text(
             f"✅ *Кімнату створено!*\n"
-            f"🏠 Назва: *{result['name']}*\n"
-            f"🔑 Код запрошення: `{result['invite_code']}`",
+            f"🏠 Назва: *{result.get('name', 'Unknown')}*\n"
+            f"🔑 Код запрошення: `{result.get('invite_code', 'N/A')}`",
             parse_mode="Markdown"
         )
 
