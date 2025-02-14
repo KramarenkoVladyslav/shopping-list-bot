@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.models import User
-from app.repositories.room import create_room, get_user_rooms, update_room, join_room
+from app.repositories.room import create_room, get_user_rooms, update_room, join_room, leave_room
 from app.schemas.room import RoomResponse, RoomCreate, RoomUpdate
 from app.services.room_service import get_room_members, add_user_to_room, remove_user_from_room
 
@@ -77,4 +77,14 @@ async def remove_user(room_id: int, user_id: int, db: AsyncSession = Depends(get
     result = await remove_user_from_room(db, room_id, user_id, current_user.id)
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=403, detail=result["error"])
+    return result
+
+
+# Leave room endpoint for users
+@router.delete("/{room_id}/leave")
+async def leave_room_endpoint(room_id: int, db: AsyncSession = Depends(get_db),
+                              current_user: User = Depends(get_current_user)):
+    result = await leave_room(db, room_id, current_user.id)
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
     return result

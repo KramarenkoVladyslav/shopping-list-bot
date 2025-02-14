@@ -21,7 +21,7 @@ async def create_room(db: AsyncSession, name: str, owner_id: int):
         f"📢 *Нова кімната створена!* 🏠\n"
         f"👤 Власник: _User {owner_id}_\n"
         f"🛒 Назва кімнати: *{room.name}*\n"
-        f"🔑 Код запрошення: `{room.invite_code}`"
+        f"🔑 Код запрошення: {room.invite_code}"
     )
     await websocket_manager.send_message(room.id, message)
 
@@ -102,4 +102,35 @@ async def join_room(db: AsyncSession, invite_code: str, user_id: int):
     )
     await websocket_manager.send_message(room.id, message)
 
-    return {"name": room.name, "message": "Successfully joined the room"}
+    # Повертаємо числовий ідентифікатор кімнати, її назву та повідомлення
+    return {"id": room.id, "name": room.name, "message": "Successfully joined the room"}
+
+
+async def leave_room(db: AsyncSession, room_id: int, user_id: int):
+    room = await db.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found.")
+    if room.owner_id == user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Власник не може покинути кімнату. Видаліть кімнату замість цього."
+        )
+
+    result = await db.execute(
+        select(RoomUser).where(RoomUser.room_id == room.id, RoomUser.user_id == user_id)
+    )
+    room_user = result.scalar_one_or_none()
+    if not room_user:
+        raise HTTPException(status_code=404, detail="Ви не є учасником цієї кімнати.")
+
+    await db.delete(room_user)
+    await db.commit()
+
+    message = (
+        f"🚪 *Користувач покинув кімнату!* 👋\n"
+        f"🛒 Кімната: *{room.name}*\n"
+        f"👤 Користувач: _User {user_id}_"
+    )
+    await websocket_manager.send_message(room.id, message)
+
+    return {"message": "Successfully left the room."}
